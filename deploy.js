@@ -73,6 +73,7 @@ const checks = [
   ['서비스워커 버전 일치',    fs.readFileSync(SW, 'utf8').includes("const BUILD = '" + BUILD + "'")],
   ['원본 파일 제외됨',       !tracked.includes('_reference_v9.html')],
   ['스크린샷 제외됨',        !tracked.some(f => f.startsWith('.test-shots/'))],
+  ['.nojekyll 있음',        fs.existsSync(path.join(HERE, '.nojekyll'))],
 ];
 
 let bad = 0;

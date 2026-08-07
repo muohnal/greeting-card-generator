@@ -6,7 +6,7 @@
    "네트워크 먼저", 아이콘·매니페스트는 "캐시 먼저"로 나눴다.
    인터넷이 없거나 느리면 곧바로 캐시로 넘어간다.                     */
 
-const BUILD = '2026-08-07 18:17';                 // 빌드할 때 실제 시각으로 교체된다
+const BUILD = '2026-08-07 18:21';                 // 빌드할 때 실제 시각으로 교체된다
 const PREFIX = 'greeting-card-generator-';
 const CACHE = PREFIX + BUILD;
 const NET_TIMEOUT = 3500;                  // 이보다 느리면 캐시를 쓴다
