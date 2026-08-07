@@ -118,21 +118,29 @@ details .body{padding-top:13px;}
 .themes button:hover{background:#F5F5F3;}
 .themes button i{width:12px;height:12px;border-radius:3px;display:block;border:1px solid rgba(0,0,0,.12);}
 .sw{display:flex;flex-wrap:wrap;gap:7px;align-items:center;}
-.sw button{
+/* 원형 스와치용 규칙. .auto 버튼까지 걸리면 27px 원 안에 글자가 뭉개진다. */
+.sw button:not(.auto){
   appearance:none;width:27px;height:27px;border-radius:50%;cursor:pointer;padding:0;
-  border:1px solid rgba(0,0,0,.16);box-shadow:inset 0 0 0 2px #fff;
+  border:1px solid rgba(0,0,0,.16);box-shadow:inset 0 0 0 2px #fff;flex:none;
 }
-.sw button[aria-pressed="true"]{outline:2px solid var(--navy);outline-offset:1px;}
+.sw button:not(.auto)[aria-pressed="true"]{outline:2px solid var(--navy);outline-offset:1px;}
 .sw input[type=color]{
   width:34px;height:27px;padding:0;border:1px solid var(--line);border-radius:6px;
   background:#fff;cursor:pointer;
 }
-.sw .hexlabel{font-size:11px;color:var(--gray);font-variant-numeric:tabular-nums;}
+.sw .hexinput{
+  width:92px;font-family:inherit;font-size:12px;font-weight:600;padding:6px 8px;
+  border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);
+  text-transform:uppercase;font-variant-numeric:tabular-nums;letter-spacing:.02em;
+}
+.sw .hexinput:focus{outline:2px solid var(--navy);outline-offset:-1px;border-color:var(--navy);}
+.sw .hexinput.bad{border-color:var(--warn);color:var(--warn);background:var(--warn-bg);}
 .sw .auto{
   appearance:none;border:1px dashed var(--line);background:#fff;font-family:inherit;
-  font-size:11.5px;color:var(--gray);padding:6px 9px;border-radius:6px;cursor:pointer;font-weight:600;
+  font-size:11.5px;color:var(--gray);padding:0 10px;height:27px;line-height:1;
+  border-radius:6px;cursor:pointer;font-weight:700;white-space:nowrap;flex:none;
 }
-.sw .auto[aria-pressed="true"]{border-style:solid;border-color:var(--navy);color:var(--navy);}
+.sw .auto[aria-pressed="true"]{border-style:solid;border-color:var(--navy);color:var(--navy);background:#F4F7FB;}
 
 /* ── 서비스 항목 ── */
 .svc{border:1px solid var(--line);border-radius:9px;padding:10px;margin-bottom:8px;background:#FCFCFB;}
@@ -1648,7 +1656,8 @@ function makeSw(id, list, key, auto){
   var box = $(id); box.innerHTML = '';
   if(auto){
     var ab = document.createElement('button');
-    ab.type = 'button'; ab.className = 'auto'; ab.textContent = '메인색 따라가기';
+    ab.type = 'button'; ab.className = 'auto'; ab.textContent = '자동';
+    ab.title = '메인 색을 따라갑니다';
     ab.setAttribute('data-auto', '1');
     ab.addEventListener('click', function(){ S[key] = ''; paintSwatches(); invalidate(); });
     box.appendChild(ab);
@@ -1665,11 +1674,43 @@ function makeSw(id, list, key, auto){
     S[key] = inp.value.toUpperCase(); paintSwatches(true); invalidate();
   });
   box.appendChild(inp);
-  var lab = document.createElement('span');
-  lab.className = 'hexlabel';
-  box.appendChild(lab);
+
+  /* 색상 코드 직접 입력 — #41D18E 처럼 받아쓸 수 있게 한다.
+     # 없이 써도, 세 자리(#0AF)로 써도 받는다. */
+  var hex = document.createElement('input');
+  hex.type = 'text'; hex.className = 'hexinput'; hex.maxLength = 7;
+  hex.spellcheck = false; hex.autocapitalize = 'characters';
+  hex.setAttribute('autocomplete', 'off');
+  hex.placeholder = '#RRGGBB';
+  hex.title = '색상 코드를 직접 입력하세요';
+  hex.addEventListener('focus', function(){ hex.select(); });
+  hex.addEventListener('input', function(){
+    var v = normHex(hex.value);
+    if(v){
+      hex.classList.remove('bad');
+      S[key] = v;
+      paintSwatches(true, hex);      /* 입력 중인 칸은 건드리지 않는다 */
+      invalidate();
+    }else{
+      hex.classList.toggle('bad', hex.value.replace(/[^0-9a-f]/gi,'').length > 0);
+    }
+  });
+  hex.addEventListener('blur', function(){       /* 다 쓰고 나면 정식 표기로 정리 */
+    hex.classList.remove('bad');
+    paintSwatches();
+  });
+  hex.addEventListener('keydown', function(e){ if(e.key === 'Enter'){ e.preventDefault(); hex.blur(); } });
+  box.appendChild(hex);
 }
-function paintSwatches(skipInput){
+
+/* '#41D18E', '41d18e', '#0AF' 를 모두 '#41D18E' 형태로 바꾼다. 아니면 null */
+function normHex(v){
+  var s = String(v || '').trim().replace(/^#/, '');
+  if(!/^[0-9a-fA-F]{3}$/.test(s) && !/^[0-9a-fA-F]{6}$/.test(s)) return null;
+  if(s.length === 3) s = s[0]+s[0]+s[1]+s[1]+s[2]+s[2];
+  return '#' + s.toUpperCase();
+}
+function paintSwatches(skipInput, typing){
   [['swPaper','paperColor'],['swMain','mainColor'],['swAccent','accentColor'],
    ['swName','nameColor'],['swContact','contactColor']].forEach(function(pr){
     var box = $(pr[0]); if(!box) return;
@@ -1686,8 +1727,12 @@ function paintSwatches(skipInput){
     });
     var inp = box.querySelector('input[type=color]');
     if(inp && !skipInput) inp.value = eff;
-    var lab = box.querySelector('.hexlabel');
-    if(lab) lab.textContent = isAuto ? '자동 ' + eff : val;
+    var hex = box.querySelector('.hexinput');
+    /* 지금 타이핑 중인 칸은 덮어쓰지 않는다 (커서가 튀지 않게) */
+    if(hex && hex !== typing && document.activeElement !== hex){
+      hex.value = eff;
+      hex.classList.remove('bad');
+    }
   });
 }
 function buildColorUI(){
