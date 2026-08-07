@@ -118,18 +118,16 @@ details .body{padding-top:13px;}
 .themes button:hover{background:#F5F5F3;}
 .themes button i{width:12px;height:12px;border-radius:3px;display:block;border:1px solid rgba(0,0,0,.12);}
 .sw{display:flex;flex-wrap:wrap;gap:7px;align-items:center;}
-/* 원형 스와치용 규칙. .auto 버튼까지 걸리면 27px 원 안에 글자가 뭉개진다. */
-.sw button:not(.auto){
+/* 원형 스와치용 규칙 — 색 동그라미(data-c)에만 건다.
+   :not() 로 하나씩 빼다 보면 버튼을 추가할 때마다 27px 원에 갇힌다. */
+.sw button[data-c]{
   appearance:none;width:27px;height:27px;border-radius:50%;cursor:pointer;padding:0;
   border:1px solid rgba(0,0,0,.16);box-shadow:inset 0 0 0 2px #fff;flex:none;
 }
-.sw button:not(.auto)[aria-pressed="true"]{outline:2px solid var(--navy);outline-offset:1px;}
-.sw input[type=color]{
-  width:34px;height:27px;padding:0;border:1px solid var(--line);border-radius:6px;
-  background:#fff;cursor:pointer;
-}
-.sw .hexinput{
-  width:92px;font-family:inherit;font-size:12px;font-weight:600;padding:6px 8px;
+.sw button[data-c][aria-pressed="true"]{outline:2px solid var(--navy);outline-offset:1px;}
+/* .f input[type=text] 의 width:100% 를 이기려면 선택자를 더 구체적으로 써야 한다 */
+.sw input.hexinput{
+  width:100px;flex:none;font-family:inherit;font-size:12px;font-weight:600;padding:6px 8px;
   border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);
   text-transform:uppercase;font-variant-numeric:tabular-nums;letter-spacing:.02em;
 }
@@ -141,6 +139,46 @@ details .body{padding-top:13px;}
   border-radius:6px;cursor:pointer;font-weight:700;white-space:nowrap;flex:none;
 }
 .sw .auto[aria-pressed="true"]{border-style:solid;border-color:var(--navy);color:var(--navy);background:#F4F7FB;}
+
+/* ── 색 고르기 판 ── */
+.pickbtn{
+  appearance:none;border:1px solid var(--line);background:#fff;font-family:inherit;
+  font-size:12px;font-weight:700;color:var(--ink);height:27px;padding:0 10px;
+  border-radius:6px;cursor:pointer;white-space:nowrap;flex:none;
+}
+.pickbtn[aria-expanded="true"]{border-color:var(--navy);color:var(--navy);background:#F4F7FB;}
+.picker{
+  border:1px solid var(--line);border-radius:10px;padding:12px;margin-top:10px;
+  background:#fff;box-shadow:0 2px 12px rgba(16,45,74,.10);
+}
+.pk-sv{
+  position:relative;height:170px;border-radius:8px;cursor:crosshair;
+  touch-action:none;border:1px solid rgba(0,0,0,.12);
+}
+.pk-hue{
+  position:relative;height:24px;border-radius:12px;margin-top:14px;cursor:pointer;
+  touch-action:none;border:1px solid rgba(0,0,0,.12);
+  background:linear-gradient(to right,#f00 0%,#ff0 17%,#0f0 33%,#0ff 50%,#00f 67%,#f0f 83%,#f00 100%);
+}
+.pk-dot{
+  position:absolute;width:20px;height:20px;border-radius:50%;border:2px solid #fff;
+  box-shadow:0 0 0 1px rgba(0,0,0,.4),0 1px 5px rgba(0,0,0,.4);
+  transform:translate(-50%,-50%);pointer-events:none;top:50%;
+}
+.pk-row{display:flex;gap:8px;align-items:center;margin-top:13px;}
+.pk-prev{width:38px;height:32px;border-radius:6px;border:1px solid rgba(0,0,0,.18);flex:none;}
+.pk-row .pk-close{margin-left:auto;flex:none;}
+.pk-rgb{display:flex;gap:8px;margin-top:9px;}
+.pk-rgb span{display:flex;align-items:center;gap:6px;flex:1;min-width:0;}
+.pk-rgb label{font-size:11.5px;color:var(--gray);font-weight:800;flex:none;}
+.picker input.pk-hex,.picker input.pk-num{
+  font-family:inherit;font-size:12.5px;font-weight:600;padding:7px 8px;
+  border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);
+  font-variant-numeric:tabular-nums;
+}
+.picker input.pk-hex{width:112px;flex:none;text-transform:uppercase;}
+.picker input.pk-num{width:100%;min-width:0;}
+.picker input.pk-hex:focus,.picker input.pk-num:focus{outline:2px solid var(--navy);outline-offset:-1px;}
 
 /* ── 서비스 항목 ── */
 .svc{border:1px solid var(--line);border-radius:9px;padding:10px;margin-bottom:8px;background:#FCFCFB;}
@@ -1668,12 +1706,13 @@ function makeSw(id, list, key, auto){
     b.addEventListener('click', function(){ S[key] = c; paintSwatches(); invalidate(); });
     box.appendChild(b);
   });
-  var inp = document.createElement('input');
-  inp.type = 'color'; inp.title = '직접 고르기';
-  inp.addEventListener('input', function(){
-    S[key] = inp.value.toUpperCase(); paintSwatches(true); invalidate();
-  });
-  box.appendChild(inp);
+  /* 색 고르기 판 열기 — 브라우저 기본 색선택기 대신 직접 만든 판을 쓴다.
+     기기마다 모양이 제각각이고 폰에서는 조작이 불편하기 때문이다. */
+  var pb = document.createElement('button');
+  pb.type = 'button'; pb.className = 'pickbtn'; pb.textContent = '🎨 색 고르기';
+  pb.setAttribute('aria-expanded', 'false');
+  pb.addEventListener('click', function(){ openPicker(key, id, pb); });
+  box.appendChild(pb);
 
   /* 색상 코드 직접 입력 — #41D18E 처럼 받아쓸 수 있게 한다.
      # 없이 써도, 세 자리(#0AF)로 써도 받는다. */
@@ -1703,6 +1742,163 @@ function makeSw(id, list, key, auto){
   box.appendChild(hex);
 }
 
+/* ══════════════════════════════════════════════════════════
+   색 고르기 판 — 채도·명도 사각형 + 색상 띠 + 코드/RGB 입력.
+   판은 하나만 만들어 두고, 누른 줄 밑으로 옮겨 다닌다.
+   ══════════════════════════════════════════════════════════ */
+function rgb2hsv(r, g, b){
+  r/=255; g/=255; b/=255;
+  var mx = Math.max(r,g,b), mn = Math.min(r,g,b), d = mx-mn, h = 0;
+  if(d){
+    if(mx === r) h = ((g-b)/d) % 6;
+    else if(mx === g) h = (b-r)/d + 2;
+    else h = (r-g)/d + 4;
+    h *= 60; if(h < 0) h += 360;
+  }
+  return { h:h, s: mx ? d/mx : 0, v: mx };
+}
+function hsv2hex(h, s, v){
+  var c = v*s, x = c*(1 - Math.abs((h/60) % 2 - 1)), m = v - c, r, g, b;
+  if(h < 60)       { r=c; g=x; b=0; }
+  else if(h < 120) { r=x; g=c; b=0; }
+  else if(h < 180) { r=0; g=c; b=x; }
+  else if(h < 240) { r=0; g=x; b=c; }
+  else if(h < 300) { r=x; g=0; b=c; }
+  else             { r=c; g=0; b=x; }
+  return '#' + [r,g,b].map(function(u){
+    return ('0' + Math.round((u+m)*255).toString(16)).slice(-2);
+  }).join('').toUpperCase();
+}
+
+var PK = null;          /* 판 DOM */
+var pkKey = null;       /* 지금 편집 중인 색 (mainColor 등) */
+var pkHSV = { h:210, s:.8, v:.3 };
+var pkSelfUpdate = false;   /* 판을 직접 만지는 중인지 */
+
+function buildPicker(){
+  var d = document.createElement('div');
+  d.className = 'picker';
+  d.innerHTML =
+    '<div class="pk-sv"><i class="pk-dot"></i></div>' +
+    '<div class="pk-hue"><i class="pk-dot"></i></div>' +
+    '<div class="pk-row">' +
+      '<span class="pk-prev"></span>' +
+      '<input class="pk-hex" maxlength="7" spellcheck="false" autocomplete="off">' +
+      '<button class="btn sm pk-close" type="button">닫기</button>' +
+    '</div>' +
+    '<div class="pk-rgb">' +
+      '<span><label>R</label><input class="pk-num" type="number" min="0" max="255" data-ch="r"></span>' +
+      '<span><label>G</label><input class="pk-num" type="number" min="0" max="255" data-ch="g"></span>' +
+      '<span><label>B</label><input class="pk-num" type="number" min="0" max="255" data-ch="b"></span>' +
+    '</div>';
+
+  var sv = d.querySelector('.pk-sv'), hue = d.querySelector('.pk-hue');
+
+  function track(el, onMove){
+    function run(e){
+      var r = el.getBoundingClientRect();
+      onMove(
+        Math.min(1, Math.max(0, (e.clientX - r.left) / r.width)),
+        Math.min(1, Math.max(0, (e.clientY - r.top) / r.height))
+      );
+    }
+    el.addEventListener('pointerdown', function(e){
+      el.setPointerCapture(e.pointerId); run(e); e.preventDefault();
+    });
+    el.addEventListener('pointermove', function(e){
+      if(el.hasPointerCapture && el.hasPointerCapture(e.pointerId)) run(e);
+    });
+  }
+  track(sv,  function(x, y){ pkHSV.s = x; pkHSV.v = 1 - y; pkApply(); });
+  track(hue, function(x){ pkHSV.h = x * 360; pkApply(); });
+
+  d.querySelector('.pk-hex').addEventListener('input', function(){
+    var v = normHex(this.value);
+    if(v) pkSetHex(v, true);
+  });
+  Array.prototype.forEach.call(d.querySelectorAll('.pk-num'), function(n){
+    n.addEventListener('input', function(){
+      var cur = hex2rgb(pkCurrentHex()), map = { r:0, g:1, b:2 };
+      var i = map[n.getAttribute('data-ch')];
+      var val = Math.min(255, Math.max(0, parseInt(n.value, 10) || 0));
+      cur[i] = val;
+      pkSetHex('#' + cur.map(function(u){ return ('0'+u.toString(16)).slice(-2); }).join('').toUpperCase(), true);
+    });
+  });
+  d.querySelector('.pk-close').addEventListener('click', closePicker);
+  return d;
+}
+
+function pkCurrentHex(){ return hsv2hex(pkHSV.h, pkHSV.s, pkHSV.v); }
+
+/* 판의 눈금·미리보기를 현재 값에 맞춘다. skip 이면 그 입력칸은 두고 넘어간다 */
+function pkPaint(skipHex, skipNum){
+  if(!PK) return;
+  var hex = pkCurrentHex();
+  var sv = PK.querySelector('.pk-sv'), hue = PK.querySelector('.pk-hue');
+  sv.style.background =
+    'linear-gradient(to top, #000, rgba(0,0,0,0)),' +
+    'linear-gradient(to right, #fff, rgba(255,255,255,0)),' +
+    hsv2hex(pkHSV.h, 1, 1);
+  var sd = sv.querySelector('.pk-dot');
+  sd.style.left = (pkHSV.s * 100) + '%';
+  sd.style.top  = ((1 - pkHSV.v) * 100) + '%';
+  sd.style.background = hex;
+  var hd = hue.querySelector('.pk-dot');
+  hd.style.left = (pkHSV.h / 360 * 100) + '%';
+  hd.style.background = hsv2hex(pkHSV.h, 1, 1);
+  PK.querySelector('.pk-prev').style.background = hex;
+  if(!skipHex) PK.querySelector('.pk-hex').value = hex;
+  if(!skipNum){
+    var c = hex2rgb(hex), ch = ['r','g','b'];
+    ch.forEach(function(k, i){ PK.querySelector('.pk-num[data-ch="'+k+'"]').value = c[i]; });
+  }
+}
+
+/* 판을 만졌을 때 — 카드까지 반영 */
+function pkApply(){
+  if(!pkKey) return;
+  S[pkKey] = pkCurrentHex();
+  pkPaint();
+  pkSelfUpdate = true;
+  try{ paintSwatches(); } finally { pkSelfUpdate = false; }
+  invalidate();
+}
+function pkSetHex(hex, fromInput){
+  var c = hex2rgb(hex), h = rgb2hsv(c[0], c[1], c[2]);
+  /* 회색이나 검정은 색상(hue)이 정의되지 않으므로 기존 값을 유지한다 */
+  if(h.s > 0.001) pkHSV.h = h.h;
+  pkHSV.s = h.s; pkHSV.v = h.v;
+  if(pkKey) S[pkKey] = hex;
+  pkPaint(fromInput === true, false);
+  pkSelfUpdate = true;
+  try{ paintSwatches(); } finally { pkSelfUpdate = false; }
+  invalidate();
+}
+
+function closePicker(){
+  if(PK && PK.parentNode) PK.parentNode.removeChild(PK);
+  Array.prototype.forEach.call(document.querySelectorAll('.pickbtn'), function(b){
+    b.setAttribute('aria-expanded', 'false');
+  });
+  pkKey = null;
+}
+function openPicker(key, boxId, btn){
+  var same = (pkKey === key);
+  closePicker();
+  if(same) return;                       /* 같은 버튼을 다시 누르면 닫기 */
+  pkKey = key;
+  if(!PK) PK = buildPicker();
+  var box = $(boxId);
+  box.parentNode.insertBefore(PK, box.nextSibling);
+  btn.setAttribute('aria-expanded', 'true');
+  var eff = String(S[key] || S.mainColor || '#102D4A');
+  var c = hex2rgb(eff), h = rgb2hsv(c[0], c[1], c[2]);
+  if(h.s > 0.001) pkHSV.h = h.h;
+  pkHSV.s = h.s; pkHSV.v = h.v;
+  pkPaint();
+}
+
 /* '#41D18E', '41d18e', '#0AF' 를 모두 '#41D18E' 형태로 바꾼다. 아니면 null */
 function normHex(v){
   var s = String(v || '').trim().replace(/^#/, '');
@@ -1718,15 +1914,23 @@ function paintSwatches(skipInput, typing){
     var val = raw.toUpperCase();
     var isAuto = !raw;                                   /* 비어 있으면 메인색을 따라간다 */
     var eff = (val || String(S.mainColor || '#102D4A').toUpperCase());
-    Array.prototype.forEach.call(box.querySelectorAll('button'), function(b){
-      if(b.getAttribute('data-auto')){
-        b.setAttribute('aria-pressed', isAuto ? 'true' : 'false');
-      }else{
-        b.setAttribute('aria-pressed', (!isAuto && b.getAttribute('data-c').toUpperCase() === val) ? 'true' : 'false');
-      }
+    /* data-c 가 있는 버튼(색 동그라미)만 대상이다.
+       [자동]·[색 고르기] 버튼까지 훑으면 null.toUpperCase() 로 터진다. */
+    var ab = box.querySelector('button[data-auto]');
+    if(ab) ab.setAttribute('aria-pressed', isAuto ? 'true' : 'false');
+    Array.prototype.forEach.call(box.querySelectorAll('button[data-c]'), function(b){
+      b.setAttribute('aria-pressed',
+        (!isAuto && b.getAttribute('data-c').toUpperCase() === val) ? 'true' : 'false');
     });
-    var inp = box.querySelector('input[type=color]');
-    if(inp && !skipInput) inp.value = eff;
+    /* 판이 열려 있는 줄이면 판의 눈금도 맞춰준다.
+       단 판을 직접 만지는 중일 때는 건드리지 않는다 —
+       hex 로 왕복 변환하면 드래그 중에 점이 미세하게 튄다. */
+    if(pkKey === pr[1] && PK && !skipInput && !pkSelfUpdate){
+      var cc = hex2rgb(eff), hh = rgb2hsv(cc[0], cc[1], cc[2]);
+      if(hh.s > 0.001) pkHSV.h = hh.h;
+      pkHSV.s = hh.s; pkHSV.v = hh.v;
+      pkPaint(typing === PK, false);
+    }
     var hex = box.querySelector('.hexinput');
     /* 지금 타이핑 중인 칸은 덮어쓰지 않는다 (커서가 튀지 않게) */
     if(hex && hex !== typing && document.activeElement !== hex){
