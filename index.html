@@ -2116,12 +2116,67 @@ setTimeout(markFonts, 2600);
 })();
 </script>
 
+<div id="verBar">버전 2026-08-07 16:57</div>
+<div id="newVer" hidden><span>새 버전이 나왔습니다.</span><button type="button" id="newVerGo">지금 새로고침</button></div>
+<style>
+#verBar{
+  text-align:center;font-size:11px;color:#9AA0A8;padding:14px 10px 4px;
+  font-variant-numeric:tabular-nums;
+}
+#newVer{
+  position:fixed;left:12px;right:12px;bottom:12px;z-index:50;
+  background:#102D4A;color:#fff;border-radius:10px;padding:12px 14px;
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font-size:13.5px;font-weight:600;box-shadow:0 4px 18px rgba(0,0,0,.28);
+}
+#newVer button{
+  appearance:none;border:0;background:#C6A05C;color:#fff;font-family:inherit;
+  font-size:13px;font-weight:700;padding:9px 14px;border-radius:8px;cursor:pointer;flex:none;
+}
+</style>
 <script>
-/* 서비스워커 등록 — 한 번 열어두면 그 뒤로는 인터넷 없이도 실행된다 */
+window.__BUILD = '2026-08-07 16:57';
+/* 서비스워커 등록 — 한 번 열어두면 그 뒤로는 인터넷 없이도 실행된다.
+   updateViaCache:'none' 을 줘야 브라우저가 sw.js 를 캐시에서 꺼내 쓰지 않고
+   매번 새로 확인한다. 이게 없으면 새 버전을 올려도 하루 넘게 안 바뀔 수 있다. */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function(){
-    navigator.serviceWorker.register('sw.js').catch(function(e){
-      console.warn('오프라인 준비 실패:', e);
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(function(reg){
+      function watch(w){
+        if(!w) return;
+        w.addEventListener('statechange', function(){
+          /* 이미 쓰고 있던 사람에게만, 그리고 지금 보고 있는 화면이
+             실제로 낡았을 때만 알린다. 새 워커에게 버전을 물어
+             내 화면 버전과 다를 때만 배너를 띄운다. */
+          if(w.state !== 'installed' || !navigator.serviceWorker.controller) return;
+          try{
+            var ch = new MessageChannel();
+            ch.port1.onmessage = function(ev){
+              if(ev.data && ev.data.build && ev.data.build !== window.__BUILD){
+                var bar = document.getElementById('newVer');
+                if(bar) bar.hidden = false;
+              }
+            };
+            w.postMessage('version', [ch.port2]);
+          }catch(err){ /* 물어볼 수 없으면 조용히 넘어간다 */ }
+        });
+      }
+      watch(reg.installing);
+      reg.addEventListener('updatefound', function(){ watch(reg.installing); });
+
+      reg.update();
+      /* 탭으로 돌아올 때마다 새 버전이 있는지 확인한다 */
+      document.addEventListener('visibilitychange', function(){
+        if(!document.hidden) reg.update();
+      });
+    }).catch(function(e){ console.warn('오프라인 준비 실패:', e); });
+
+    var go = document.getElementById('newVerGo');
+    if(go) go.addEventListener('click', function(){
+      if(navigator.serviceWorker.controller){
+        navigator.serviceWorker.controller.postMessage('skipWaiting');
+      }
+      location.reload();
     });
   });
 }
