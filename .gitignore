@@ -1,0 +1,16 @@
+# 공개 저장소이므로 개인정보가 담긴 파일은 올리지 않는다.
+
+# 처음 받은 원본 — 담당자 이름·전화번호가 들어 있음
+_reference_v9.html
+
+# 검증 스크린샷 — 카드 이미지에 전화번호가 그대로 찍혀 있음
+.test-shots/
+
+# 잡다한 것
+node_modules/
+*.zip
+*.tmp
+
+# deploy.js 가 잠깐 쓰는 파일
+.commitmsg.tmp
+.msg.tmp
