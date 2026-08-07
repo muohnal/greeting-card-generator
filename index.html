@@ -988,21 +988,32 @@ function onListInput(){
   $('nameCount').textContent = list.length;
 
   var v = validate(list), notes = [], cls = 'info';
-  if(over) notes.push('<b>'+MAX_NAMES+'명을 넘어 '+over+'명은 제외됩니다.</b>');
+  if(over) notes.push(MAX_NAMES + '명을 넘어 ' + over + '명은 제외됩니다.');
   if(r.blanks) notes.push('빈 칸 ' + r.blanks + '건을 건너뜁니다.');
   if(v.dups.length) notes.push('중복 ' + v.dups.length + '건: ' + v.dups.slice(0,4).join(', ') + (v.dups.length>4?' 외':''));
   if(v.odd.length) notes.push('특수문자 포함 ' + v.odd.length + '건: ' + v.odd.slice(0,3).join(', '));
   if(v.long.length) notes.push('이름이 너무 긴 항목 ' + v.long.length + '건');
   if(notes.length) cls = 'warn';
 
+  /* 고객명이 그대로 들어가는 자리다.
+     innerHTML 로 넣으면 남이 준 CSV 한 줄로 스크립트가 실행될 수 있으므로
+     반드시 textContent 로만 출력한다. */
   var box = $('listMsg');
   box.className = 'msg ' + cls;
-  box.innerHTML = notes.length
-    ? notes.join('<br>') + (v.dups.length ? '<button class="btn sm" id="btnDedupe">중복 제거</button>' : '')
-    : (list.length ? list.length + '명 확인했습니다.' : '');
-  if(v.dups.length){
-    var b = $('btnDedupe');
-    if(b) b.addEventListener('click', dedupe);
+  box.textContent = '';
+  if(notes.length){
+    notes.forEach(function(t, i){
+      if(i) box.appendChild(document.createElement('br'));
+      box.appendChild(document.createTextNode(t));
+    });
+    if(v.dups.length){
+      var b = document.createElement('button');
+      b.className = 'btn sm'; b.type = 'button'; b.id = 'btnDedupe'; b.textContent = '중복 제거';
+      b.addEventListener('click', dedupe);
+      box.appendChild(b);
+    }
+  }else if(list.length){
+    box.textContent = list.length + '명 확인했습니다.';
   }
   if(previewIdx >= list.length) previewIdx = Math.max(0, list.length-1);
   invalidate();
@@ -1074,13 +1085,19 @@ function checkAgent(){
   if(!S.agentTel) warn.push('전화번호가 비어 있습니다.');
   if(warn.length){
     box.className = 'msg warn';
-    box.innerHTML = warn.join('<br>') + '<button class="btn sm" id="btnAgentOk">내 정보가 맞습니다</button>';
-    var b = $('btnAgentOk');
-    if(b) b.addEventListener('click', function(){
+    box.textContent = '';
+    warn.forEach(function(t, i){
+      if(i) box.appendChild(document.createElement('br'));
+      box.appendChild(document.createTextNode(t));
+    });
+    var b = document.createElement('button');
+    b.className = 'btn sm'; b.type = 'button'; b.textContent = '내 정보가 맞습니다';
+    b.addEventListener('click', function(){
       localStorage.setItem(STORE_KEY + '.agentOk', '1'); checkAgent();
     });
+    box.appendChild(b);
   }else{
-    box.className = 'msg'; box.innerHTML = '';
+    box.className = 'msg'; box.textContent = '';
   }
 }
 
@@ -1136,7 +1153,21 @@ function waitFont(){
    ══════════════════════════════════════════════════════════ */
 function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
 function toBlob(canvas){
-  return new Promise(function(res){ canvas.toBlob(function(b){ res(b); }, 'image/png'); });
+  /* toBlob 은 실패해도 예외가 아니라 null 을 준다. 그대로 넘기면
+     다음 단계에서 엉뚱한 곳이 터지므로 여기서 잡아 거절한다. */
+  return new Promise(function(res, rej){
+    canvas.toBlob(function(b){
+      b ? res(b) : rej(new Error('이미지를 만들지 못했습니다 (메모리 부족이거나 카드가 너무 큽니다)'));
+    }, 'image/png');
+  });
+}
+
+/* 만들어둔 ZIP 다운로드 주소를 정리한다.
+   해제하지 않으면 다시 생성할 때마다 수십~수백 MB가 계속 쌓인다. */
+var zipUrls = [];
+function releaseZipUrls(){
+  zipUrls.forEach(function(u){ try{ URL.revokeObjectURL(u); }catch(e){} });
+  zipUrls = [];
 }
 
 function setProg(done, total, etaMs){
@@ -1161,11 +1192,27 @@ async function generate(){
   $('btnGen').disabled = $('btnGen2').disabled = true;
   $('progWrap').style.display = '';
   $('dlList').innerHTML = '';
+  releaseZipUrls();                 /* 앞서 만든 ZIP 주소를 먼저 해제한다 */
   $('genMsg').className = 'msg'; $('genMsg').textContent = '';
   $('btnPause').textContent = '일시정지';
 
   job = { running:true, paused:false, cancelled:false, done:0, total:names.length, times:[] };
 
+  try{
+    await runGeneration(names);
+  }catch(err){
+    /* 여기서 잡지 않으면 job.running 이 true 로 남아 버튼이 영영 잠긴다 */
+    $('genMsg').className = 'msg warn';
+    $('genMsg').textContent = '생성이 중단되었습니다: ' + (err && err.message ? err.message : err) +
+      ' — 인원을 줄이거나 이름 크기를 낮춘 뒤 다시 시도해 보세요.';
+  }finally{
+    job.running = false;
+    $('btnGen').disabled = $('btnGen2').disabled = false;
+    $('btnPause').textContent = '일시정지';
+  }
+}
+
+async function runGeneration(names){
   $('progText').textContent = '글꼴을 불러오는 중…';
   await waitFont();
 
@@ -1175,7 +1222,7 @@ async function generate(){
   out.width = cache.canvas.width; out.height = cache.canvas.height;
   var ctx = out.getContext('2d');
 
-  var zips = [], zip = null, zipFrom = 0, urls = [];
+  var zips = [], zip = null, zipFrom = 0;
   var pngFiles = [];      /* 20장 이하일 때만 — 이미지 자체를 공유 시트로 넘기기 위해 */
   var t0 = performance.now();
 
@@ -1213,9 +1260,6 @@ async function generate(){
     if((i+1) % TICK_BATCH === 0) await sleep(0);
   }
 
-  job.running = false;
-  $('btnGen').disabled = $('btnGen2').disabled = false;
-
   if(job.cancelled){
     $('genMsg').className = 'msg info';
     $('genMsg').textContent = job.done + '장까지 만든 뒤 취소했습니다. 만들던 파일은 버렸습니다.';
@@ -1228,13 +1272,14 @@ async function generate(){
   var box = $('dlList');
   zips.forEach(function(z, idx){
     var url = URL.createObjectURL(z.blob);
-    urls.push(url);
+    zipUrls.push(url);
     var row = document.createElement('div');
     row.className = 'dl-row';
     var a = document.createElement('a');
     a.href = url;
     a.download = '인사카드_' + z.label + '.zip';
-    a.innerHTML = '⬇ 인사카드_' + z.label + '.zip <span>' + mb(z.blob.size) + '</span>';
+    a.appendChild(document.createTextNode('⬇ 인사카드_' + z.label + '.zip '));
+    var sz = document.createElement('span'); sz.textContent = mb(z.blob.size); a.appendChild(sz);
     row.appendChild(a);
     var sb = document.createElement('button');
     sb.className = 'btn sm'; sb.textContent = '공유';
@@ -1394,7 +1439,33 @@ async function showSamples(){
 /* ══════════════════════════════════════════════════════════
    8. CSV
    ══════════════════════════════════════════════════════════ */
+var MAX_CSV = 5 * 1024 * 1024;      /* 500명 명단은 수십 KB면 충분하다 */
+var MAX_IMG = 12 * 1024 * 1024;
+
+/* CSV 첫 칸을 꺼낸다. "김,철수" 처럼 따옴표 안에 쉼표가 있는 값을
+   그냥 쉼표로 자르면 이름이 '"김' 으로 잘려버린다. */
+function firstCsvField(row){
+  if(row[0] !== '"'){
+    return row.split(/[,\t;]/)[0].trim();
+  }
+  var out = '', i = 1;
+  while(i < row.length){
+    if(row[i] === '"'){
+      if(row[i+1] === '"'){ out += '"'; i += 2; continue; }   // "" 는 따옴표 한 개
+      break;
+    }
+    out += row[i++];
+  }
+  return out.trim();
+}
+
 function readCsv(file){
+  if(file.size > MAX_CSV){
+    $('listMsg').className = 'msg warn';
+    $('listMsg').textContent = '파일이 너무 큽니다 (' + mb(file.size) + '). 이름 목록 파일은 보통 수십 KB입니다. ' +
+      '5MB 이하 파일만 읽습니다.';
+    return;
+  }
   var fr = new FileReader();
   fr.onload = function(){
     var buf = fr.result, text;
@@ -1408,15 +1479,30 @@ function readCsv(file){
     var rows = text.split(/\r?\n/), out = [];
     for(var i=0;i<rows.length;i++){
       if(!rows[i].trim()) continue;
-      var first = rows[i].split(/[,\t;]/)[0].replace(/^"|"$/g,'').trim();
+      var first = firstCsvField(rows[i]);
       if(!first) continue;
       if(i === 0 && /^(이름|성명|고객|고객명|name)$/i.test(first)) continue;  // 헤더 건너뛰기
       out.push(first);
     }
+    /* 이름 안에 쉼표가 있으면(예: "김,철수") 쉼표 구분 모드로 넣는 순간
+       다시 읽을 때 두 명으로 쪼개진다. 그런 이름이 하나라도 있으면
+       줄바꿈 모드로 자동 전환한다. */
+    var head = 'CSV에서 ' + out.length + '명을 읽었습니다.';
+    if(out.some(function(n){ return n.indexOf(',') !== -1; }) && S.sepMode !== 'line'){
+      var r = document.querySelector('input[name=sepMode][value="line"]');
+      if(r){ r.checked = true; S.sepMode = 'line'; }
+      head += ' 이름에 쉼표가 있어 한 줄에 한 명씩 모드로 바꿨습니다.';
+    }
     $('nameList').value = (S.sepMode === 'line') ? out.join('\n') : out.join(', ');
     onListInput();
-    $('listMsg').className = 'msg ok';
-    $('listMsg').textContent = 'CSV에서 ' + out.length + '명을 읽었습니다.';
+    var box = $('listMsg');
+    if(box.textContent){
+      box.insertBefore(document.createElement('br'), box.firstChild);
+      box.insertBefore(document.createTextNode(head), box.firstChild);
+    }else{
+      box.className = 'msg ok';
+      box.textContent = head;
+    }
   };
   fr.readAsArrayBuffer(file);
 }
@@ -1572,6 +1658,13 @@ function bind(){
   $('logoInput').addEventListener('change', function(e){
     var f = e.target.files && e.target.files[0];
     if(!f) return;
+    if(f.size > MAX_IMG || !/^image\//.test(f.type)){
+      $('agentMsg').className = 'msg warn';
+      $('agentMsg').textContent = !/^image\//.test(f.type)
+        ? '이미지 파일이 아닙니다. PNG나 JPG를 올려 주세요.'
+        : '이미지가 너무 큽니다 (' + mb(f.size) + '). 12MB 이하로 줄여서 올려 주세요.';
+      e.target.value = ''; return;
+    }
     var fr = new FileReader();
     fr.onload = function(){ shrinkLogo(fr.result); };
     fr.readAsDataURL(f);
