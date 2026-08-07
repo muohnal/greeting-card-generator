@@ -128,6 +128,22 @@ details .body{padding-top:13px;}
   background:#fff;cursor:pointer;
 }
 .sw .hexlabel{font-size:11px;color:var(--gray);font-variant-numeric:tabular-nums;}
+.sw .auto{
+  appearance:none;border:1px dashed var(--line);background:#fff;font-family:inherit;
+  font-size:11.5px;color:var(--gray);padding:6px 9px;border-radius:6px;cursor:pointer;font-weight:600;
+}
+.sw .auto[aria-pressed="true"]{border-style:solid;border-color:var(--navy);color:var(--navy);}
+
+/* ── 서비스 항목 ── */
+.svc{border:1px solid var(--line);border-radius:9px;padding:10px;margin-bottom:8px;background:#FCFCFB;}
+.svc:last-child{margin-bottom:0;}
+.svc-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:7px;gap:8px;}
+.svc input[type=text]{margin-bottom:6px;}
+.svc input[type=text]:last-child{margin-bottom:0;}
+.svc.off{opacity:.5;}
+.svc.off input[type=text]{background:#F4F4F4;}
+.chk{display:flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;}
+.chk input{width:16px;height:16px;accent-color:var(--navy);}
 .hint{font-size:11.5px;color:var(--gray);line-height:1.55;margin:6px 0 0;}
 .msg{font-size:12.5px;line-height:1.6;border-radius:8px;padding:9px 11px;margin-top:10px;}
 .msg.warn{background:var(--warn-bg);color:var(--warn);border:1px solid #F0D5CE;}
@@ -282,13 +298,41 @@ details .body{padding-top:13px;}
         <label for="txtBody">인사말 본문</label>
         <textarea id="txtBody" style="min-height:88px;"></textarea>
       </div>
+      <div class="f" style="margin-top:15px;">
+        <label>서비스 항목 &nbsp;<span style="color:var(--gray);font-weight:400;">체크를 끄면 카드에서 빠집니다</span></label>
+
+        <div class="svc">
+          <div class="svc-head">
+            <label class="chk"><input type="checkbox" id="it1on"><span>1번 항목 사용</span></label>
+            <button class="btn sm" type="button" data-clear="1">비우기</button>
+          </div>
+          <input type="text" id="it1t" placeholder="제목 (예: ✔ 보험금 청구 도우미)">
+          <input type="text" id="it1d" placeholder="설명">
+        </div>
+
+        <div class="svc">
+          <div class="svc-head">
+            <label class="chk"><input type="checkbox" id="it2on"><span>2번 항목 사용</span></label>
+            <button class="btn sm" type="button" data-clear="2">비우기</button>
+          </div>
+          <input type="text" id="it2t" placeholder="제목">
+          <input type="text" id="it2d" placeholder="설명">
+        </div>
+
+        <div class="svc">
+          <div class="svc-head">
+            <label class="chk"><input type="checkbox" id="it3on"><span>3번 항목 사용</span></label>
+            <button class="btn sm" type="button" data-clear="3">비우기</button>
+          </div>
+          <input type="text" id="it3t" placeholder="제목">
+          <input type="text" id="it3d" placeholder="설명">
+        </div>
+      </div>
+
       <details>
-        <summary>서비스 항목 · 연락처 · 안내문</summary>
+        <summary>담당 표기 · 연락처 · 하단 안내문</summary>
         <div class="body">
           <div class="f"><label for="txtEyebrow">담당 표기 (작은 글씨)</label><input type="text" id="txtEyebrow"></div>
-          <div class="f"><label for="it1t">서비스 1</label><input type="text" id="it1t"><input type="text" id="it1d" style="margin-top:6px;"></div>
-          <div class="f"><label for="it2t">서비스 2</label><input type="text" id="it2t"><input type="text" id="it2d" style="margin-top:6px;"></div>
-          <div class="f"><label for="it3t">서비스 3</label><input type="text" id="it3t"><input type="text" id="it3d" style="margin-top:6px;"></div>
           <div class="f"><label for="txtCLabel">연락처 안내 문구</label><input type="text" id="txtCLabel"></div>
           <div class="f"><label for="txtNote">연락처 옆 문구</label><textarea id="txtNote" style="min-height:56px;"></textarea></div>
           <div class="f"><label for="txtFoot">하단 안내문</label><input type="text" id="txtFoot"></div>
@@ -307,8 +351,16 @@ details .body{padding-top:13px;}
         <div class="sw" id="swPaper"></div>
       </div>
       <div class="f">
-        <label>메인 색 &nbsp;<span style="color:var(--gray);font-weight:400;">밴드 · 이름 · 연락처 박스</span></label>
+        <label>메인 색 &nbsp;<span style="color:var(--gray);font-weight:400;">인사말 밴드</span></label>
         <div class="sw" id="swMain"></div>
+      </div>
+      <div class="f">
+        <label>이름 색 &nbsp;<span style="color:var(--gray);font-weight:400;">담당자 이름</span></label>
+        <div class="sw" id="swName"></div>
+      </div>
+      <div class="f">
+        <label>연락처 박스 색 &nbsp;<span style="color:var(--gray);font-weight:400;">전화번호 상자</span></label>
+        <div class="sw" id="swContact"></div>
       </div>
       <div class="f">
         <label>포인트 색 &nbsp;<span style="color:var(--gray);font-weight:400;">구분선 · 직함 · 체크 표시</span></label>
@@ -451,16 +503,29 @@ function lum(h){
   var c = hex2rgb(h);
   return (0.2126*c[0] + 0.7152*c[1] + 0.0722*c[2]) / 255;
 }
+/* 어떤 바탕색 위에 올릴 글자색들을 계산한다.
+   밝은 색을 고르면 흰 글자가 안 보이므로 어두운 글자로 뒤집는다. */
+function shade(m){
+  var light = lum(m) > 0.58;
+  return {
+    on  : light ? '#15181C' : '#FFFFFF',
+    sub : light ? mix(m, '#000000', 0.58) : mix(m, '#FFFFFF', 0.72),
+    soft: light ? mix(m, '#000000', 0.44) : mix(m, '#FFFFFF', 0.55)
+  };
+}
 function theme(){
   var m = S.mainColor || '#102D4A';
-  var light = lum(m) > 0.58;                       // 밝은 메인색이면 글자를 어둡게
+  /* 이름·연락처는 비워두면 메인 색을 따라간다 */
+  var contact = S.contactColor || m;
+  var b = shade(m), c = shade(contact);
   return {
     paper : S.paperColor  || '#FAF9F6',
     main  : m,
     accent: S.accentColor || '#C6A05C',
-    onMain: light ? '#15181C' : '#FFFFFF',
-    sub   : light ? mix(m, '#000000', 0.58) : mix(m, '#FFFFFF', 0.72),
-    soft  : light ? mix(m, '#000000', 0.44) : mix(m, '#FFFFFF', 0.55)
+    name  : S.nameColor || m,
+    contact: contact,
+    onMain: b.on,  sub: b.sub,  soft: b.soft,
+    onContact: c.on, subContact: c.sub, softContact: c.soft
   };
 }
 
@@ -500,12 +565,14 @@ var DEFAULTS = {
   it1t:'✔ 보험금 청구 도우미', it1d:'병원 진료 후 청구 접수 · 진행 안내',
   it2t:'✔ 보장 상담 도우미',   it2d:'가입 내용 확인 및 보장 범위 안내',
   it3t:'✔ 정보 변경 도우미',   it3d:'주소 · 직업 변경 접수',
+  it1on:true, it2on:true, it3on:true,
   txtCLabel:'문의 · 접수 · 컨설턴트',
   txtNote:'언제든 연락 주시면\n최선을 다해 안내드리겠습니다.',
   txtFoot:'＊ 본 안내는 담당자 인계에 따른 안내 문자입니다.',
   fontPick:'pretendard', applyAll:false, nameSize:42, nameTrack:14,
   logoScale:100, logoX:0, logoY:50, sepMode:'comma', nameList:'',
-  paperColor:'#FAF9F6', mainColor:'#102D4A', accentColor:'#C6A05C'
+  paperColor:'#FAF9F6', mainColor:'#102D4A', accentColor:'#C6A05C',
+  nameColor:'', contactColor:''
 };
 
 /* 기본 로고 — 파일 안에 박아 넣어서 인터넷 없이도 그대로 나온다.
@@ -516,6 +583,7 @@ var $ = function(id){ return document.getElementById(id); };
 var TEXT_IDS = ['agentName','agentRole','agentTel','agentOrg','companyName','txtHello','txtBody',
   'txtEyebrow','it1t','it1d','it2t','it2d','it3t','it3d','txtCLabel','txtNote','txtFoot'];
 var RANGE_IDS = ['nameSize','nameTrack','logoScale','logoX','logoY'];
+var CHECK_IDS = ['applyAll','it1on','it2on','it3on'];
 
 /* ══════════════════════════════════════════════════════════
    1. ZIP 라이터 (STORE 방식 · 외부 라이브러리 없음)
@@ -747,7 +815,10 @@ function layout(k, name){
 
   /* 서비스 항목 */
   L.items = [];
-  var its = [[S.it1t,S.it1d],[S.it2t,S.it2d],[S.it3t,S.it3d]];
+  var its = [];
+  if(S.it1on) its.push([S.it1t,S.it1d]);
+  if(S.it2on) its.push([S.it2t,S.it2d]);
+  if(S.it3on) its.push([S.it3t,S.it3d]);
   L.itemsY = y;
   for(var i=0;i<its.length;i++){
     if(!its[i][0] && !its[i][1]) continue;
@@ -840,7 +911,7 @@ function paint(ctx, L, name, skipTitle){
   ctx.textBaseline = 'alphabetic';
   var baseline = y + L.nameSize*0.92;
   setF(ctx, k, String(L.w), L.nameSize, stack);
-  ctx.fillStyle = C.main;
+  ctx.fillStyle = C.name;
   var endX = drawSpaced(ctx, S.agentName, X(PAD), X(baseline), S.nameTrack/10*k);
   if(S.agentRole){
     setF(ctx, k, String(L.w), L.roleSize, stack);
@@ -875,21 +946,21 @@ function paint(ctx, L, name, skipTitle){
   /* 연락처 박스 */
   var bx = PAD, bw = CW - PAD*2;
   roundRect(ctx, X(bx), X(L.cY), X(bw), X(L.cH), X(10));
-  ctx.fillStyle = C.main; ctx.fill();
+  ctx.fillStyle = C.contact; ctx.fill();
 
   var cy = L.cY + 20 + (L.cInnerH - (L.cLabelLines.length*20 + 5 + 32));
   setF(ctx, k, '400', 15, cs);
-  ctx.fillStyle = C.soft;
+  ctx.fillStyle = C.softContact;
   for(i=0;i<L.cLabelLines.length;i++){ ctx.fillText(L.cLabelLines[i], X(bx+24), X(cy)); cy += 20; }
   cy += 5;
   setF(ctx, k, '800', 25, cs);
-  ctx.fillStyle = C.onMain;
+  ctx.fillStyle = C.onContact;
   ctx.fillText(S.agentTel, X(bx+24), X(cy));
 
   var ny = L.cY + 20 + (L.cInnerH - L.cNoteLines.length*22);
   var nx = X(bx+bw-24) - L.cNoteW;
   setF(ctx, k, '400', 14, cs);
-  ctx.fillStyle = C.sub;
+  ctx.fillStyle = C.subContact;
   for(i=0;i<L.cNoteLines.length;i++){ ctx.fillText(L.cNoteLines[i], nx, X(ny)); ny += 22; }
 
   /* 하단 */
@@ -1519,7 +1590,7 @@ function collect(){
   TEXT_IDS.forEach(function(id){ S[id] = $(id).value; });
   RANGE_IDS.forEach(function(id){ S[id] = +$(id).value; });
   S.fontPick = $('fontPick').value;
-  S.applyAll = $('applyAll').checked;
+  CHECK_IDS.forEach(function(id){ S[id] = $(id).checked; });
   S.sepMode = document.querySelector('input[name=sepMode]:checked').value;
 }
 function saveSettings(){
@@ -1541,7 +1612,7 @@ function loadSettings(){
   TEXT_IDS.forEach(function(id){ if($(id)) $(id).value = src[id]; });
   RANGE_IDS.forEach(function(id){ if($(id)) $(id).value = src[id]; });
   $('fontPick').value = src.fontPick;
-  $('applyAll').checked = !!src.applyAll;
+  CHECK_IDS.forEach(function(id){ if($(id)) $(id).checked = !!src[id]; });
   var r = document.querySelector('input[name=sepMode][value="'+src.sepMode+'"]');
   if(r) r.checked = true;
   /* 저장된 값이 있으면 그것을, 한 번도 손대지 않았으면 기본 로고를 쓴다.
@@ -1552,14 +1623,36 @@ function loadSettings(){
     setLogo(DEFAULT_LOGO);
   }
   collect();
-  S.paperColor  = src.paperColor;
-  S.mainColor   = src.mainColor;
-  S.accentColor = src.accentColor;
+  S.paperColor   = src.paperColor;
+  S.mainColor    = src.mainColor;
+  S.accentColor  = src.accentColor;
+  S.nameColor    = src.nameColor;
+  S.contactColor = src.contactColor;
+  syncSvc();
   syncSliderLabels();
 }
 /* ── 색 선택 UI ── */
-function makeSw(id, list, key){
+/* 서비스 항목 체크 상태를 화면에 반영 (꺼진 항목은 흐리게) */
+function syncSvc(){
+  [1,2,3].forEach(function(n){
+    var cb = $('it'+n+'on');
+    if(!cb) return;
+    var row = cb.closest('.svc');
+    if(row) row.classList.toggle('off', !cb.checked);
+    $('it'+n+'t').disabled = $('it'+n+'d').disabled = !cb.checked;
+  });
+}
+
+/* auto=true 면 '메인색 따라가기' 버튼이 붙는다 (값을 비우면 메인색을 쓴다) */
+function makeSw(id, list, key, auto){
   var box = $(id); box.innerHTML = '';
+  if(auto){
+    var ab = document.createElement('button');
+    ab.type = 'button'; ab.className = 'auto'; ab.textContent = '메인색 따라가기';
+    ab.setAttribute('data-auto', '1');
+    ab.addEventListener('click', function(){ S[key] = ''; paintSwatches(); invalidate(); });
+    box.appendChild(ab);
+  }
   list.forEach(function(c){
     var b = document.createElement('button');
     b.type = 'button'; b.style.background = c; b.setAttribute('data-c', c); b.title = c;
@@ -1577,16 +1670,24 @@ function makeSw(id, list, key){
   box.appendChild(lab);
 }
 function paintSwatches(skipInput){
-  [['swPaper','paperColor'],['swMain','mainColor'],['swAccent','accentColor']].forEach(function(pr){
+  [['swPaper','paperColor'],['swMain','mainColor'],['swAccent','accentColor'],
+   ['swName','nameColor'],['swContact','contactColor']].forEach(function(pr){
     var box = $(pr[0]); if(!box) return;
-    var val = String(S[pr[1]] || '').toUpperCase();
+    var raw = String(S[pr[1]] || '');
+    var val = raw.toUpperCase();
+    var isAuto = !raw;                                   /* 비어 있으면 메인색을 따라간다 */
+    var eff = (val || String(S.mainColor || '#102D4A').toUpperCase());
     Array.prototype.forEach.call(box.querySelectorAll('button'), function(b){
-      b.setAttribute('aria-pressed', b.getAttribute('data-c').toUpperCase() === val ? 'true' : 'false');
+      if(b.getAttribute('data-auto')){
+        b.setAttribute('aria-pressed', isAuto ? 'true' : 'false');
+      }else{
+        b.setAttribute('aria-pressed', (!isAuto && b.getAttribute('data-c').toUpperCase() === val) ? 'true' : 'false');
+      }
     });
     var inp = box.querySelector('input[type=color]');
-    if(inp && !skipInput) inp.value = val;
+    if(inp && !skipInput) inp.value = eff;
     var lab = box.querySelector('.hexlabel');
-    if(lab) lab.textContent = val;
+    if(lab) lab.textContent = isAuto ? '자동 ' + eff : val;
   });
 }
 function buildColorUI(){
@@ -1597,6 +1698,7 @@ function buildColorUI(){
     b.innerHTML = '<i style="background:' + t.m + '"></i>' + t.n;
     b.addEventListener('click', function(){
       S.paperColor = t.p; S.mainColor = t.m; S.accentColor = t.a;
+      S.nameColor = ''; S.contactColor = '';
       paintSwatches(); invalidate();
     });
     tr.appendChild(b);
@@ -1604,6 +1706,8 @@ function buildColorUI(){
   makeSw('swPaper',  SW_PAPER,  'paperColor');
   makeSw('swMain',   SW_MAIN,   'mainColor');
   makeSw('swAccent', SW_ACCENT, 'accentColor');
+  makeSw('swName',   SW_MAIN,   'nameColor',    true);
+  makeSw('swContact',SW_MAIN,   'contactColor', true);
   paintSwatches();
 }
 
@@ -1639,7 +1743,16 @@ function bind(){
     $(id).addEventListener('input', function(){ collect(); syncSliderLabels(); invalidate(); });
   });
   $('fontPick').addEventListener('change', function(){ collect(); invalidate(); });
-  $('applyAll').addEventListener('change', function(){ collect(); invalidate(); });
+  CHECK_IDS.forEach(function(id){
+    $(id).addEventListener('change', function(){ collect(); syncSvc(); invalidate(); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-clear]'), function(b){
+    b.addEventListener('click', function(){
+      var n = b.getAttribute('data-clear');
+      $('it'+n+'t').value = ''; $('it'+n+'d').value = '';
+      collect(); invalidate();
+    });
+  });
   Array.prototype.forEach.call(document.querySelectorAll('input[name=sepMode]'), function(r){
     r.addEventListener('change', function(){ collect(); onListInput(); });
   });
