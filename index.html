@@ -451,6 +451,17 @@ details .body{padding-top:13px;}
       <div class="msg" id="fontMsg"></div>
     </div>
 
+    <div class="card-panel">
+      <h2 class="sec-title">설정 관리</h2>
+      <p class="help" style="margin-bottom:11px;">설정은 이 브라우저에만 저장됩니다. 고객 명단은 저장하지 않습니다.</p>
+      <div class="fr">
+        <button class="btn sm" id="btnResetAll">전부 기본값으로</button>
+        <button class="btn sm" id="btnResetColor">색만 기본값으로</button>
+      </div>
+      <p class="hint" id="storeInfo"></p>
+      <div class="msg" id="saveMsg"></div>
+    </div>
+
     <button class="btn primary block" id="btnGen2">안내문 생성 (ZIP 저장)</button>
   </div>
 
@@ -1639,14 +1650,46 @@ function collect(){
   CHECK_IDS.forEach(function(id){ S[id] = $(id).checked; });
   S.sepMode = document.querySelector('input[name=sepMode]:checked').value;
 }
+/* 저장이 실패하면 새로고침했을 때 방금 고친 내용이 사라지고
+   예전 상태로 되돌아간다. 조용히 넘어가면 안 되는 이유다. */
+function sayStore(cls, text){
+  var box = $('saveMsg'); if(!box) return;
+  box.className = 'msg ' + (cls || '');
+  box.textContent = text || '';
+}
+function showStoreSize(){
+  var el = $('storeInfo'); if(!el) return;
+  var raw = '';
+  try{ raw = localStorage.getItem(STORE_KEY) || ''; }catch(e){}
+  el.textContent = raw
+    ? '저장된 설정 ' + (raw.length < 1024 ? raw.length + 'B' : Math.round(raw.length/1024) + 'KB')
+    : '아직 저장된 설정이 없습니다.';
+}
+
 function saveSettings(){
+  var o = {};
+  Object.keys(S).forEach(function(kk){ o[kk] = S[kk]; });
+  o.nameList = '';                       /* 고객 명단은 개인정보라 저장하지 않는다 */
+
+  /* 기본 로고는 파일 안에 이미 들어 있다. 통째로 저장하면 108KB 를
+     차지해 저장 용량의 99% 를 잡아먹으므로 표식만 남긴다. */
+  o.logoData = (logoData === DEFAULT_LOGO) ? '#default'
+             : (logoData && logoData.length < 1400000 ? logoData : '');
+
   try{
-    var o = {};
-    Object.keys(S).forEach(function(kk){ o[kk] = S[kk]; });
-    o.nameList = '';
-    o.logoData = (logoData && logoData.length < 1400000) ? logoData : '';
     localStorage.setItem(STORE_KEY, JSON.stringify(o));
-  }catch(e){ /* 용량 초과 — 조용히 넘어간다 */ }
+    sayStore('', '');
+  }catch(e){
+    /* 로고를 빼고 설정만이라도 살린다 */
+    try{
+      o.logoData = '#default';
+      localStorage.setItem(STORE_KEY, JSON.stringify(o));
+      sayStore('warn', '로고가 너무 커서 저장하지 못했습니다. 나머지 설정은 저장했고, 다음에 열면 기본 로고로 나옵니다. 더 작은 이미지를 올려 주세요.');
+    }catch(e2){
+      sayStore('warn', '설정을 저장하지 못했습니다 (브라우저 저장 공간 부족). 지금 화면을 닫으면 방금 고친 내용이 사라집니다. [전부 기본값으로]를 눌러 정리한 뒤 다시 해 주세요.');
+    }
+  }
+  showStoreSize();
 }
 function loadSettings(){
   var raw = null;
@@ -1664,7 +1707,9 @@ function loadSettings(){
   /* 저장된 값이 있으면 그것을, 한 번도 손대지 않았으면 기본 로고를 쓴다.
      사용자가 직접 지운 경우엔 빈 문자열이 저장돼 있으므로 되살아나지 않는다. */
   if(raw && typeof raw.logoData === 'string'){
-    if(raw.logoData) setLogo(raw.logoData);
+    if(raw.logoData === '#default') setLogo(DEFAULT_LOGO);   /* 기본 로고 표식 */
+    else if(raw.logoData) setLogo(raw.logoData);
+    /* 빈 문자열이면 사용자가 직접 지운 것 — 되살리지 않는다 */
   }else{
     setLogo(DEFAULT_LOGO);
   }
@@ -2043,6 +2088,24 @@ function bind(){
   });
   $('btnDefaultLogo').addEventListener('click', function(){ setLogo(DEFAULT_LOGO); });
 
+  /* 잘못 만진 설정을 되돌릴 수단. 이게 없으면 항목을 하나씩 손으로 고쳐야 한다. */
+  $('btnResetAll').addEventListener('click', function(){
+    if(!confirm('담당자 정보 · 카드 문구 · 색 · 글꼴 · 로고를 모두 처음 상태로 되돌립니다.\n되돌린 뒤에는 취소할 수 없습니다. 계속할까요?')) return;
+    try{
+      localStorage.removeItem(STORE_KEY);
+      localStorage.removeItem(STORE_KEY + '.agentOk');
+    }catch(e){}
+    location.reload();
+  });
+  $('btnResetColor').addEventListener('click', function(){
+    S.paperColor  = DEFAULTS.paperColor;
+    S.mainColor   = DEFAULTS.mainColor;
+    S.accentColor = DEFAULTS.accentColor;
+    S.nameColor   = ''; S.contactColor = '';
+    closePicker(); paintSwatches(); invalidate();
+    sayStore('ok', '색을 기본값으로 되돌렸습니다.');
+  });
+
   $('btnPrev').addEventListener('click', function(){
     var n = currentNames(); if(!n.length) return;
     previewIdx = (previewIdx - 1 + n.length) % n.length; drawPreview();
@@ -2107,6 +2170,7 @@ loadSettings();
 bind();
 onListInput();
 drawPreview();
+showStoreSize();
 
 if(document.fonts && document.fonts.ready){
   document.fonts.ready.then(function(){ setTimeout(markFonts, 250); });
@@ -2116,7 +2180,7 @@ setTimeout(markFonts, 2600);
 })();
 </script>
 
-<div id="verBar">버전 2026-08-07 18:21</div>
+<div id="verBar">버전 2026-08-12 21:17</div>
 <div id="newVer" hidden><span>새 버전이 나왔습니다.</span><button type="button" id="newVerGo">지금 새로고침</button></div>
 <style>
 #verBar{
@@ -2135,7 +2199,7 @@ setTimeout(markFonts, 2600);
 }
 </style>
 <script>
-window.__BUILD = '2026-08-07 18:21';
+window.__BUILD = '2026-08-12 21:17';
 /* 서비스워커 등록 — 한 번 열어두면 그 뒤로는 인터넷 없이도 실행된다.
    updateViaCache:'none' 을 줘야 브라우저가 sw.js 를 캐시에서 꺼내 쓰지 않고
    매번 새로 확인한다. 이게 없으면 새 버전을 올려도 하루 넘게 안 바뀔 수 있다. */
